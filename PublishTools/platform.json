@@ -1,0 +1,116 @@
+{
+  "_comment": "Master config for all games on the Solar2DPuzzle platform.",
+  "_comment2": "Run from Solar2DPuzzle/: python PublishTools/build.py prepare get10 ios",
+
+  "games": {
+
+    "get10": {
+      "project_folder": "Get10V3-2026",
+      "display_name":   "Get 10",
+      "short_name":     "Get10",
+      "bundle_id_ios":  "com.YOURCOMPANY.get10",
+      "bundle_id_android": "com.YOURCOMPANY.get10",
+      "version":        "1.0.0",
+      "build_number":   1,
+      "entry_scene":    "scenes.menu",
+      "description":    "Merge numbered tiles to reach 10",
+
+      "ads": {
+        "_comment":               "Replace PLACEHOLDER values before publishing",
+        "admob_app_id_ios":       "PLACEHOLDER_ADMOB_APP_ID_IOS",
+        "admob_app_id_android":   "PLACEHOLDER_ADMOB_APP_ID_ANDROID",
+        "banner_id_ios":          "PLACEHOLDER_BANNER_IOS",
+        "banner_id_android":      "PLACEHOLDER_BANNER_ANDROID",
+        "interstitial_id_ios":    "PLACEHOLDER_INTERSTITIAL_IOS",
+        "interstitial_id_android":"PLACEHOLDER_INTERSTITIAL_ANDROID",
+        "rewarded_id_ios":        "PLACEHOLDER_REWARDED_IOS",
+        "rewarded_id_android":    "PLACEHOLDER_REWARDED_ANDROID"
+      },
+
+      "urls": {
+        "privacy": "https://example.com/get10/privacy",
+        "terms":   "https://example.com/get10/terms",
+        "support": "https://example.com/get10/support"
+      },
+
+      "social": {
+        "twitter":  "",
+        "facebook": "",
+        "website":  ""
+      },
+
+      "app_store": {
+        "apple_id":           "",
+        "google_play_id":     "",
+        "apple_team_id":      "",
+        "apple_provisioning": ""
+      },
+
+      "features": {
+        "ads_enabled":        false,
+        "iap_enabled":        false,
+        "analytics_enabled":  false,
+        "leaderboard_enabled":false
+      },
+
+      "exclude_from_build": [
+        "LineConnect-2026"
+      ]
+    },
+
+    "connectline": {
+      "_status":        "PLANNED — not started yet",
+      "project_folder": "LineConnect-2026",
+      "display_name":   "Connect Line",
+      "short_name":     "ConnectLine",
+      "bundle_id_ios":  "com.YOURCOMPANY.connectline",
+      "bundle_id_android": "com.YOURCOMPANY.connectline",
+      "version":        "1.0.0",
+      "build_number":   1,
+      "entry_scene":    "scenes.menu",
+      "description":    "Draw lines to connect matching dots",
+
+      "ads": {
+        "admob_app_id_ios":       "PLACEHOLDER_ADMOB_APP_ID_IOS",
+        "admob_app_id_android":   "PLACEHOLDER_ADMOB_APP_ID_ANDROID",
+        "banner_id_ios":          "PLACEHOLDER_BANNER_IOS",
+        "banner_id_android":      "PLACEHOLDER_BANNER_ANDROID",
+        "interstitial_id_ios":    "PLACEHOLDER_INTERSTITIAL_IOS",
+        "interstitial_id_android":"PLACEHOLDER_INTERSTITIAL_ANDROID",
+        "rewarded_id_ios":        "PLACEHOLDER_REWARDED_IOS",
+        "rewarded_id_android":    "PLACEHOLDER_REWARDED_ANDROID"
+      },
+
+      "urls": {
+        "privacy": "https://example.com/connectline/privacy",
+        "terms":   "https://example.com/connectline/terms",
+        "support": "https://example.com/connectline/support"
+      },
+
+      "social": {
+        "twitter":  "",
+        "facebook": "",
+        "website":  ""
+      },
+
+      "app_store": {
+        "apple_id":           "",
+        "google_play_id":     "",
+        "apple_team_id":      "",
+        "apple_provisioning": ""
+      },
+
+      "features": {
+        "ads_enabled":        false,
+        "iap_enabled":        false,
+        "analytics_enabled":  false,
+        "leaderboard_enabled":false
+      },
+
+      "exclude_from_build": [
+        "Get10V3-2026"
+      ]
+    }
+
+  }
+}
