@@ -24,20 +24,32 @@ USAGE
       Quick switch for simulator testing. Writes config/activeGame.lua only.
       Example: python PublishTools/build.py switch get10
 
-  python PublishTools/build.py prepare <game> [ios|android]
+  python PublishTools/build.py prepare <game> [mobile|ios|android]
       Full preparation for App Store / Play Store submission:
         1. Writes <game>/config/activeGame.lua
         2. Writes <game>/config/gameConfig.lua  (ad IDs, URLs, feature flags)
-        3. Writes <game>/build.settings         (from template)
+        3. Writes <game>/build.settings         (from template — covers BOTH platforms)
         4. Prints a publish-readiness checklist
-      Example: python PublishTools/build.py prepare get10 ios
+
+      Targets:
+        mobile   — default: prepare for both App Store + Play Store at once
+        ios      — same output, checklist focuses on iOS/Apple fields
+        android  — same output, checklist focuses on Android/Google fields
+
+      Solar2D uses ONE build.settings file for both platforms, so "mobile"
+      is the recommended target for most cases.
+
+      Examples:
+        python PublishTools/build.py prepare get10 mobile   ← usual workflow
+        python PublishTools/build.py prepare get10 ios      ← iOS-only focus
+        python PublishTools/build.py prepare get10 android  ← Android-only focus
 
 ADDING A NEW GAME
 -----------------
   1. Add a new entry to PublishTools/platform.json  (set project_folder)
   2. Create <project_folder>/ inside Solar2DPuzzle/
-  3. python PublishTools/build.py switch <game>  — start building
-  4. python PublishTools/build.py prepare <game> ios  — before submitting
+  3. python PublishTools/build.py switch <game>     — start building
+  4. python PublishTools/build.py prepare <game> mobile  — before submitting
 """
 
 import argparse
@@ -289,7 +301,9 @@ def cmd_list(platform):
     print()
     print("  Commands (run from Solar2DPuzzle/):")
     print("    python PublishTools/build.py switch <game>")
-    print("    python PublishTools/build.py prepare <game> ios|android")
+    print("    python PublishTools/build.py prepare <game> mobile    ← both stores")
+    print("    python PublishTools/build.py prepare <game> ios       ← App Store only")
+    print("    python PublishTools/build.py prepare <game> android   ← Play Store only")
     print()
 
 def cmd_switch(platform, game_key):
@@ -334,9 +348,9 @@ def main():
 
     p_prep = sub.add_parser("prepare", help="Full publish preparation")
     p_prep.add_argument("game",   help="Game key  e.g. get10")
-    p_prep.add_argument("target", nargs="?", default="ios",
-                        choices=["ios", "android", "both"],
-                        help="Target platform (default: ios)")
+    p_prep.add_argument("target", nargs="?", default="mobile",
+                        choices=["mobile", "ios", "android"],
+                        help="Target platform (default: mobile = both App Store + Play Store)")
 
     args = parser.parse_args()
     platform = load_platform()
