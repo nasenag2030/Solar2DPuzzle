@@ -140,6 +140,15 @@ files, and registers the game in `platform.json`. Ready to open in the Simulator
 
 ---
 
+## Platform TODO
+
+- [ ] **Localisation / translation system** — all games need a translation file layer.
+  Each game should have `config/i18n.lua` (or similar) mapping string keys to display
+  strings, with a locale setting in `config/settings.lua`. No hard-coded UI strings in
+  scenes. Required before any non-English App Store submission.
+
+---
+
 ## Deep Reference
 
 `solar2d_game_architecture_v2.md` — 23 sections covering every pattern, template,
