@@ -17,7 +17,7 @@
 -- Usage:
 --   local SS = require("app.helpers.saveState")
 --   SS.init()
---   SS.save(score, grid, maxTile)
+--   SS.save(mode, score, grid, maxTile)
 --   local data = SS.load()          -- { score, allTiles, maxTile } or nil
 --   SS.clear()
 --   local stats = SS.loadStats()
@@ -130,9 +130,12 @@ end
 -- ── Board save / load / clear (per-mode) ──────────────────────────────────────
 --
 -- The state column holds a JSON map keyed by mode string:
---   { classic={score,allTiles,maxTile}, dash={...}, challenge={...}, ... }
+--   { classic={score,allTiles,maxTile}, dash={...}, challenge={...},
+--     freeplay={score,allTiles,maxTile,gridSize}, ... }
 -- Each mode has its own independent save slot so resuming one mode never
 -- interferes with another.
+-- Freeplay saves also include gridSize so that a resumed game is only offered
+-- when the player re-enters freeplay with the same grid dimensions.
 
 ---
 -- Save current board for the given mode.
@@ -153,7 +156,8 @@ function M.save( mode, score, grid, maxTile )
         end
     end
 
-    allSaves[mode] = { score=score, allTiles=flat, maxTile=maxTile or 5 }
+    allSaves[mode] = { score=score, allTiles=flat, maxTile=maxTile or 5,
+                       gridSize=(mode == "freeplay") and #flat or nil }
     db.exec("UPDATE "..T_SAVE.." SET state='"..encode(allSaves).."' WHERE id=1")
 end
 

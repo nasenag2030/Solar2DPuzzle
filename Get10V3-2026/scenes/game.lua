@@ -1370,6 +1370,9 @@ function scene:create( event )
                          _mode == "freeplay" or _mode == "dash" or _mode == "challenge")
     if not savedData and isResumable then
         savedData = saveState.load(_mode)
+        if savedData and _mode == "freeplay" and savedData.gridSize ~= GRID then
+            saveState.clear(_mode); savedData = nil   -- grid size changed, start fresh
+        end
     end
 
     if savedData and isResumable then

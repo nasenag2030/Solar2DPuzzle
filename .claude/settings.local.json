@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)",
+      "Bash(python3:*)",
+      "Bash(git add:*)",
+      "Bash(rsync:*)",
+      "Bash(cp:*)"
+    ]
+  }
+}

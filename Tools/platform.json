@@ -1,6 +1,6 @@
 {
   "_comment": "Master config for all games on the Solar2DPuzzle platform.",
-  "_comment2": "Run from Solar2DPuzzle/: python PublishTools/build.py prepare get10 ios",
+  "_comment2": "Run from Solar2DPuzzle/: python Tools/build.py prepare get10 ios",
 
   "games": {
 
