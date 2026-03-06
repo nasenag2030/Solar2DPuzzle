@@ -53,6 +53,7 @@ local T_ADV    = "advancedState"
 local T_INTER  = "intermediateState"
 local T_DAILY  = "dailyState"
 local T_TERMS  = "termsState"
+local T_HS     = "styleHighScores"  -- per-style high score map
 
 -- ── Helper ─────────────────────────────────────────────────────────────────────
 
@@ -125,25 +126,30 @@ function M.init()
         { id="INTEGER PRIMARY KEY", accepted="INTEGER DEFAULT 0" },
         { { id=1, accepted=0 } }
     )
+
+    -- Per-style high scores: JSON map keyed by style key ("dash", "freeplay_6", ...)
+    db.createTable(T_HS,
+        { id="INTEGER PRIMARY KEY", scores="TEXT DEFAULT NULL" },
+        { { id=1 } }
+    )
 end
 
--- ── Board save / load / clear (per-mode) ──────────────────────────────────────
+-- ── Board save / load / clear (per-style) ─────────────────────────────────────
 --
--- The state column holds a JSON map keyed by mode string:
+-- The state column holds a JSON map keyed by style key:
 --   { classic={score,allTiles,maxTile}, dash={...}, challenge={...},
---     freeplay={score,allTiles,maxTile,gridSize}, ... }
--- Each mode has its own independent save slot so resuming one mode never
--- interferes with another.
--- Freeplay saves also include gridSize so that a resumed game is only offered
--- when the player re-enters freeplay with the same grid dimensions.
+--     freeplay_5={...}, freeplay_6={...}, ... }
+-- Style key = mode for single-style modes (dash, challenge, classic, basic).
+-- For freeplay each grid size is its own style: "freeplay_5", "freeplay_6", etc.
+-- This means different grid sizes never share a save slot or high score.
 
 ---
--- Save current board for the given mode.
--- @param mode     string — "classic" | "dash" | "challenge" | "freeplay" | ...
--- @param score    current score
--- @param grid     logical grid (cells have .num and .isBomb)
--- @param maxTile  highest tile currently on the board
-function M.save( mode, score, grid, maxTile )
+-- Save current board for the given style key.
+-- @param styleKey  string — "classic" | "dash" | "challenge" | "freeplay_5" | ...
+-- @param score     current score
+-- @param grid      logical grid (cells have .num and .isBomb)
+-- @param maxTile   highest tile currently on the board
+function M.save( styleKey, score, grid, maxTile )
     local row      = db.getRow("SELECT state FROM "..T_SAVE.." WHERE id=1")
     local allSaves = decode(row and row.state or nil, {})
 
@@ -156,19 +162,18 @@ function M.save( mode, score, grid, maxTile )
         end
     end
 
-    allSaves[mode] = { score=score, allTiles=flat, maxTile=maxTile or 5,
-                       gridSize=(mode == "freeplay") and #flat or nil }
+    allSaves[styleKey] = { score=score, allTiles=flat, maxTile=maxTile or 5 }
     db.exec("UPDATE "..T_SAVE.." SET state='"..encode(allSaves).."' WHERE id=1")
 end
 
 ---
--- Load saved board for the given mode. Returns { score, allTiles, maxTile } or nil.
--- @param mode  string — must match the mode used when saving
-function M.load( mode )
+-- Load saved board for the given style key. Returns { score, allTiles, maxTile } or nil.
+-- @param styleKey  string — must match the key used when saving
+function M.load( styleKey )
     local row = db.getRow("SELECT state FROM "..T_SAVE.." WHERE id=1")
     if not (row and row.state and row.state ~= "") then return nil end
     local allSaves = decode(row.state, {})
-    local data     = allSaves[mode]
+    local data     = allSaves[styleKey]
     if not data then return nil end
     -- Normalise: 0 → nil for num
     for i = 1, #(data.allTiles or {}) do
@@ -185,13 +190,43 @@ function M.load( mode )
 end
 
 ---
--- Erase the saved board for the given mode only (other modes are unaffected).
--- @param mode  string
-function M.clear( mode )
-    local row      = db.getRow("SELECT state FROM "..T_SAVE.." WHERE id=1")
-    local allSaves = decode(row and row.state or nil, {})
-    allSaves[mode] = nil
+-- Erase the saved board for the given style key only (other styles unaffected).
+-- @param styleKey  string
+function M.clear( styleKey )
+    local row         = db.getRow("SELECT state FROM "..T_SAVE.." WHERE id=1")
+    local allSaves    = decode(row and row.state or nil, {})
+    allSaves[styleKey] = nil
     db.exec("UPDATE "..T_SAVE.." SET state='"..encode(allSaves).."' WHERE id=1")
+end
+
+---
+-- Returns true if there is a saved board for the given style key.
+-- @param styleKey  string
+function M.hasResume( styleKey )
+    local row = db.getRow("SELECT state FROM "..T_SAVE.." WHERE id=1")
+    if not (row and row.state and row.state ~= "") then return false end
+    return decode(row.state, {})[styleKey] ~= nil
+end
+
+---
+-- Get the per-style high score. Returns 0 if none recorded.
+-- @param styleKey  string
+function M.getStyleHS( styleKey )
+    local row = db.getRow("SELECT scores FROM "..T_HS.." WHERE id=1")
+    return (decode(row and row.scores or nil, {}))[styleKey] or 0
+end
+
+---
+-- Update the per-style high score. Only writes if score is higher.
+-- @param styleKey  string
+-- @param score     number
+function M.setStyleHS( styleKey, score )
+    local row = db.getRow("SELECT scores FROM "..T_HS.." WHERE id=1")
+    local map = decode(row and row.scores or nil, {})
+    if (score or 0) > (map[styleKey] or 0) then
+        map[styleKey] = score
+        db.exec("UPDATE "..T_HS.." SET scores='"..encode(map).."' WHERE id=1")
+    end
 end
 
 -- ── All-time stats ─────────────────────────────────────────────────────────────

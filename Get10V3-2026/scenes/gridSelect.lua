@@ -7,16 +7,33 @@
 -- Classic rules apply: no bombs, no undo, no chains.
 -- Grid size options: 3×3 through 10×10.
 --
+-- Each grid size is its own Game Style (save key "freeplay_N"), so resume
+-- data and high scores are tracked independently per size.
+-- A small orange dot appears top-right on any button that has a saved game.
+--
 -- CHANGELOG:
 --   v4.0  2026-03-06  Initial
+--   v4.1  2026-03-07  Per-style save/HS; resume indicator dots
 --
 -----------------------------------------------------------------------------------------
 
 local composer    = require("composer")
 local settings    = require("config.settings")
 local audioHelper = require("app.helpers.audioHelper")
+local saveState   = require("app.helpers.saveState")
 
 local scene = composer.newScene()
+
+-- Resume dots keyed by grid size integer
+local _dots = {}
+
+local DOT_COLOR = { 1, 0.55, 0.1 }
+
+local function refreshDots()
+    for n, dot in pairs(_dots) do
+        dot.isVisible = saveState.hasResume("freeplay_"..n)
+    end
+end
 
 function scene:create( event )
     local g  = self.view
@@ -56,7 +73,7 @@ function scene:create( event )
     local startY = cy - 90
 
     for k, n in ipairs(sizes) do
-        local col  = (k - 1) % 2          -- 0 or 1
+        local col  = (k - 1) % 2
         local row  = math.floor((k-1) / 2)
         local bx   = startX + col * colGap
         local by   = startY + row * rowGap
@@ -75,6 +92,12 @@ function scene:create( event )
             x=bx, y=by+11, font=settings.FONT.NORMAL, fontSize=9 }
         sub2:setFillColor(1, 1, 1, 0.65)
 
+        -- Resume indicator dot: top-right corner of button
+        local dot = display.newCircle(g, bx+40, by-20, 5)
+        dot:setFillColor(unpack(DOT_COLOR))
+        dot.isVisible = false
+        _dots[n] = dot
+
         local function onTap( gridN )
             return function()
                 audioHelper.playTap()
@@ -89,11 +112,16 @@ function scene:create( event )
         lbl:addEventListener("tap",  onTap(n))
         sub2:addEventListener("tap", onTap(n))
     end
+
+    refreshDots()
 end
 
-function scene:show(e)  end
+function scene:show( event )
+    if event.phase == "did" then refreshDots() end
+end
+
 function scene:hide(e)  end
-function scene:destroy(e) end
+function scene:destroy(e) _dots = {} end
 
 scene:addEventListener("create",  scene)
 scene:addEventListener("show",    scene)

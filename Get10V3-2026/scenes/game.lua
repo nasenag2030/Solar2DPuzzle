@@ -147,7 +147,9 @@ local _hotZoneObjs = {}     -- map: cell → glow display object
 local _gravityDir = "down"
 
 -- Mode params (classic | newstyle | challenge | freeplay | intermediate | advanced)
-local _mode = "classic"
+local _mode     = "classic"
+-- Style key used for save/load/HS: same as _mode except freeplay → "freeplay_N"
+local _styleKey = "classic"
 local _levelNum = nil
 local _stageNum = nil
 local _levelData = nil
@@ -617,6 +619,8 @@ local function plantBombNow()
     local newObj = Tile.new(bombCell.num, true, false)
     newObj.x = bx;  newObj.y = by
     newObj.i = bombCell.i;  newObj.j = bombCell.j
+    local bScl = TILE_S / settings.VISUAL.TILE_SIZE
+    if math.abs(bScl - 1) > 0.02 then newObj.xScale = bScl;  newObj.yScale = bScl end
     newObj:addEventListener("tap", tileOnTap)
     _tileGroup:insert(newObj)
     bombCell.obj = newObj
@@ -641,7 +645,7 @@ local function checkEndlessMilestone( tileNum )
     _totalScore = _totalScore + bonus
     if _totalScore > _highScore then
         _highScore = _totalScore
-        settingsModel.setHighScore(_highScore)
+        saveState.setStyleHS(_styleKey, _highScore)
     end
     updateScoreLabels()
 
@@ -740,7 +744,7 @@ local function checkEndConditions( newTileNum, shouldBomb )
     -- Only for modes that support resuming (classic, freeplay, dash, challenge).
     -- Level/Stage/Mania modes don't resume mid-game.
     if _mode ~= "intermediate" and _mode ~= "advanced" and _mode ~= "mania" then
-        saveState.save(_mode, _totalScore, _grid, _maxTile)
+        saveState.save(_styleKey, _totalScore, _grid, _maxTile)
     end
 
     -- All clear — unlock input
@@ -794,7 +798,7 @@ _endSession = function( isGameOver )
     local newAch = achievementHelper.check(_session, updatedStats)
 
     -- Clear board save for this mode only (game is over)
-    saveState.clear(_mode)
+    saveState.clear(_styleKey)
 
     -- Spin tiles out
     local delay = 0
@@ -884,12 +888,12 @@ local function doChainStep( depth, onDone )
         _totalScore = _totalScore + pts
         if _totalScore > _highScore then
             _highScore = _totalScore
-            settingsModel.setHighScore(_highScore)
+            saveState.setStyleHS(_styleKey, _highScore)
         end
         updateScoreLabels(old)
 
         if destCellRef.num > _maxTile then _maxTile = destCellRef.num end
-        Tile.upgrade(destCellRef, _tileGroup, tileOnTap)
+        Tile.upgrade(destCellRef, _tileGroup, tileOnTap, TILE_S / settings.VISUAL.TILE_SIZE)
     end
 
     timer.performWithDelay(settings.CHAIN.ANIM_MS + settings.CHAIN.DELAY_MS, function()
@@ -943,7 +947,7 @@ local function doBombBlast( tappedCell )
     _totalScore = _totalScore + pts
     if _totalScore > _highScore then
         _highScore = _totalScore
-        settingsModel.setHighScore(_highScore)
+        saveState.setStyleHS(_styleKey, _highScore)
     end
     updateScoreLabels(old)
     _session.usedBomb = true
@@ -1027,12 +1031,12 @@ local function doMerge( tappedCell, group )
     _totalScore = _totalScore + pts
     if _totalScore > _highScore then
         _highScore = _totalScore
-        settingsModel.setHighScore(_highScore)
+        saveState.setStyleHS(_styleKey, _highScore)
     end
     updateScoreLabels(old)
 
     -- Upgrade destination tile
-    Tile.upgrade(tappedCell, _tileGroup, tileOnTap)
+    Tile.upgrade(tappedCell, _tileGroup, tileOnTap, TILE_S / settings.VISUAL.TILE_SIZE)
 
     if tappedCell.num > _maxTile then _maxTile = tappedCell.num end
     if tappedCell.num > (_session.maxTile or 0) then _session.maxTile = tappedCell.num end
@@ -1107,7 +1111,7 @@ local function buildBoard( savedData )
 
     -- Reset all state
     _totalScore            = savedData and savedData.score or 0
-    _highScore             = settingsModel.getHighScore()
+    _highScore             = saveState.getStyleHS(_styleKey)
     if _totalScore > _highScore then _highScore = _totalScore end
     _maxTile               = (savedData and savedData.maxTile) or settings.GAME.START_MAX_TILE
     _touchEnabled          = true
@@ -1148,7 +1152,7 @@ local function buildBoard( savedData )
 end
 
 function scene.restart()
-    saveState.clear(_mode)
+    saveState.clear(_styleKey)
     buildBoard(nil)
 end
 
@@ -1210,7 +1214,7 @@ local function showResumeDialog( savedData )
 
     local function onNewGame()
         display.remove(dlg)
-        saveState.clear()
+        saveState.clear(_styleKey)
         buildBoard(nil)
         _touchEnabled = true
         return true
@@ -1238,9 +1242,10 @@ function scene:create( event )
     _hasUndo   = params.hasUndo   ~= false
     _hasChains = params.hasChains == true
 
-    GRID   = params.gridSize or settings.GAME.GRID_SIZE
-    TILE_S = math.min(settings.VISUAL.TILE_SIZE,
-                      math.floor(display.actualContentWidth * 0.88 / GRID))
+    GRID      = params.gridSize or settings.GAME.GRID_SIZE
+    TILE_S    = math.min(settings.VISUAL.TILE_SIZE,
+                         math.floor(display.actualContentWidth * 0.88 / GRID))
+    _styleKey = (_mode == "freeplay") and ("freeplay_"..GRID) or _mode
 
     -- Background (tinted by dynamic bg system)
     _bgRect = display.newRect(_sceneGroup,
@@ -1287,7 +1292,7 @@ function scene:create( event )
     _scoreLabel:setFillColor(unpack(settings.COLOR.SCORE))
     _highLabel  = makeBox(display.contentCenterX + 58, "BEST")
     _highLabel:setFillColor(unpack(settings.COLOR.HIGH_SCORE))
-    _highLabel.text = scoreHelper.scoreDisplay(settingsModel.getHighScore())
+    _highLabel.text = scoreHelper.scoreDisplay(saveState.getStyleHS(_styleKey))
 
     -- Menu button
     local menuBtn = display.newText{ parent=_sceneGroup, text="☰", x=24, y=38, font=settings.FONT.BOLD, fontSize=26 }
@@ -1369,10 +1374,7 @@ function scene:create( event )
     local isResumable = (_mode == "classic" or _mode == "basic" or
                          _mode == "freeplay" or _mode == "dash" or _mode == "challenge")
     if not savedData and isResumable then
-        savedData = saveState.load(_mode)
-        if savedData and _mode == "freeplay" and savedData.gridSize ~= GRID then
-            saveState.clear(_mode); savedData = nil   -- grid size changed, start fresh
-        end
+        savedData = saveState.load(_styleKey)
     end
 
     if savedData and isResumable then
@@ -1394,7 +1396,7 @@ end
 function scene:hide( event )
     if event.phase == "will" then
         if _gameState == "running" or _gameState == "endless" then
-            saveState.save(_mode, _totalScore, _grid, _maxTile)
+            saveState.save(_styleKey, _totalScore, _grid, _maxTile)
         end
         _touchEnabled = false
         clearHighlight()

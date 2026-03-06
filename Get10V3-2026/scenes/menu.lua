@@ -145,7 +145,7 @@ function scene:create( event )
         return true
     end)
 
-    makeBtn("NEW STYLE", "More modes & challenges", btnY+68, false, function()
+    makeBtn("NEW MODE", "More modes & challenges", btnY+68, false, function()
         audioHelper.playTap()
         composer.gotoScene("scenes.modeSelect", { effect="slideLeft", time=300 })
         return true

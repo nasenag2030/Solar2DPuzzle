@@ -197,7 +197,7 @@ end
 -- @param tileData  logical cell { num, i, j, obj, isBomb }
 -- @param parent    DisplayGroup to insert new obj into
 -- @param tapCB     "tap" event listener to register on new obj
-function M.upgrade( tileData, parent, tapCB )
+function M.upgrade( tileData, parent, tapCB, scale )
     local oldObj = tileData.obj
     local newNum = tileData.num + 1
     local posX   = oldObj.x
@@ -216,13 +216,17 @@ function M.upgrade( tileData, parent, tapCB )
     local newObj = M.new(newNum, false, isEndless)
     newObj.x = posX;  newObj.y = posY
     newObj.i = tileData.i;  newObj.j = tileData.j
+    if scale and math.abs(scale - 1) > 0.02 then
+        newObj.xScale = scale;  newObj.yScale = scale
+    end
     newObj:addEventListener("tap", tapCB)
     parent:insert(newObj)
 
     tileData.num = newNum
     tileData.obj = newObj
 
-    -- Spring pop animation: overshoot then settle
+    -- Spring pop: transition.from records current xScale/yScale as target,
+    -- so the pop correctly overshoots then settles at the scaled size.
     transition.from(newObj, { xScale=1.45, yScale=1.45, time=160, transition=easing.outElastic })
 end
 
