@@ -140,6 +140,7 @@ function scene:create( event )
 
     makeBtn("CLASSIC", "Reach tile 10 · No extras", btnY, true, function()
         audioHelper.playTap()
+        composer.removeScene("scenes.game")
         composer.gotoScene("scenes.game", { effect="fade", time=300,
             params={ mode="classic", hasBombs=false, hasUndo=false, hasChains=false, gridSize=5 } })
         return true

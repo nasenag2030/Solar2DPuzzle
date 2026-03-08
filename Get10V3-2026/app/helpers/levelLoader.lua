@@ -53,32 +53,80 @@ local settings = require("config.settings")
 
 local M = {}
 
+-- ── Brick data (loaded once from data/levels/bricks.json) ─────────────────────
+--
+-- Brick positions are kept in a separate JSON file so level designers can
+-- edit coordinates without touching any Lua game code.
+-- Format: { "1": [{row=R, col=C}, ...], "2": [...], ... }
+
+local _bricksCache = nil   -- populated on first call to _getBricksData()
+local _shapesCache = nil   -- populated on first call to _getShapesData()
+
+local function _getBricksData()
+    if _bricksCache then return _bricksCache end
+    local ok, json = pcall(require, "json")
+    if not ok then _bricksCache = {}; return _bricksCache end
+    local path = system.pathForFile("data/levels/bricks.json", system.ResourceDirectory)
+    if not path then _bricksCache = {}; return _bricksCache end
+    local file = io.open(path, "r")
+    if not file then _bricksCache = {}; return _bricksCache end
+    local content = file:read("*a")
+    file:close()
+    _bricksCache = json.decode(content) or {}
+    return _bricksCache
+end
+
+-- ── Stage shape data (loaded once from data/levels/shapes.json) ───────────────
+--
+-- Each Stages-mode stage has a unique grid shape. The shape is a 6×6 matrix
+-- where 1 = active cell (can hold tiles) and 0 = inactive (dead space, never filled).
+-- Format: { "1": [[1,1,0,...],[...]], "2": [...], ... }
+-- Edit shapes.json freely — no Lua knowledge needed.
+
+local function _getShapesData()
+    if _shapesCache then return _shapesCache end
+    local ok, json = pcall(require, "json")
+    if not ok then _shapesCache = {}; return _shapesCache end
+    local path = system.pathForFile("data/levels/shapes.json", system.ResourceDirectory)
+    if not path then _shapesCache = {}; return _shapesCache end
+    local file = io.open(path, "r")
+    if not file then _shapesCache = {}; return _shapesCache end
+    local content = file:read("*a")
+    file:close()
+    _shapesCache = json.decode(content) or {}
+    return _shapesCache
+end
+
 -- ── Intermediate mode ──────────────────────────────────────────────────────────
 
 ---
 -- Load an Intermediate level definition.
 -- File path: data/levels/intermediate/level_NNN.lua
 -- Falls back to a generated placeholder if the file doesn't exist yet.
+-- Brick positions are merged in from data/levels/bricks.json.
 --
 -- @param  num  integer 1–50
--- @return level data table
+-- @return level data table (with .bricks array if any bricks defined)
 function M.loadIntermediate( num )
     local path  = string.format("data.levels.intermediate.level_%03d", num)
     local ok, data = pcall(require, path)
-    if ok and type(data) == "table" then
-        return data
+    if not (ok and type(data) == "table") then
+        -- Placeholder: random fill, reach tile 5
+        data = {
+            name   = "Level " .. num,
+            grid   = nil,
+            goal   = "reach",
+            target = 5 + math.floor(num / 10),
+            moves  = 20 + num,
+            par    = 15 + num,
+            hint   = "Merge matching tiles to advance!",
+            noBomb = false,
+        }
     end
-    -- Placeholder: random 5×5 board, reach tile 5
-    return {
-        name   = "Level " .. num,
-        grid   = nil,           -- nil = random fill
-        goal   = "reach",
-        target = 5 + math.floor(num / 10),
-        moves  = 20 + num,
-        par    = 15 + num,
-        hint   = "Merge matching tiles to advance!",
-        noBomb = false,
-    }
+    -- Attach brick positions from the separate JSON file (nil if none defined)
+    local bricksAll = _getBricksData()
+    data.bricks = bricksAll[tostring(num)]
+    return data
 end
 
 -- ── Advanced mode ──────────────────────────────────────────────────────────────
@@ -124,12 +172,14 @@ end
 function M.loadAdvanced( num )
     local path = string.format("data.levels.advanced.stage_%04d", num)
     local ok, data = pcall(require, path)
-    if ok and type(data) == "table" then
-        data.winTile = data.winTile or M.advancedWinTile(num)
-        return data
+    if not (ok and type(data) == "table") then
+        data = M._generateStage(num)
     end
-    -- Procedurally generate a stage appropriate for this number
-    return M._generateStage(num)
+    data.winTile = data.winTile or M.advancedWinTile(num)
+    -- Attach stage shape from the separate shapes.json file (nil if not defined)
+    local shapesAll = _getShapesData()
+    data.shape = shapesAll[tostring(num)]
+    return data
 end
 
 ---

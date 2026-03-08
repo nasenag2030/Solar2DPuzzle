@@ -9,14 +9,15 @@ return {
     goal   = "reach",
     target = 6,
     moves  = 18,
-    par    = 13,
+    par    = 15,
     noBomb = false,
     hint   = "The staircase shape means gravity helps you on the left side.",
     grid   = {
-        {1, nil, nil, nil, nil},
-        {1, 2, nil, nil, nil},
-        {1, 2, 3, nil, nil},
-        {1, 2, 3, 2, nil},
-        {1, 2, 3, 2, 1}
+        {1, nil, nil, nil, nil, nil},
+        {1, 2,   nil, nil, nil, nil},
+        {1, 2,   3,   nil, nil, nil},
+        {1, 2,   3,   2,   nil, nil},
+        {1, 2,   3,   2,   1,   nil},
+        {1, 2,   3,   2,   1,   2  },
     },
 }

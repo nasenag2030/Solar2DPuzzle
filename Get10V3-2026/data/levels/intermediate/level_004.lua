@@ -9,14 +9,15 @@ return {
     goal   = "clear",
     target = 0,
     moves  = nil,   -- unlimited
-    par    = 18,
+    par    = 22,
     noBomb = false,
     hint   = "Merge everything — no tile can remain on the board.",
     grid   = {
-        {2, 2, nil, 2, 2},
-        {2, 2, nil, 2, 2},
-        {nil, nil, nil, nil, nil},
-        {2, 2, nil, 2, 2},
-        {2, 2, nil, 2, 2}
+        {2, 2, nil, nil, 2, 2},
+        {2, 2, nil, nil, 2, 2},
+        {nil, nil, nil, nil, nil, nil},
+        {nil, nil, nil, nil, nil, nil},
+        {2, 2, nil, nil, 2, 2},
+        {2, 2, nil, nil, 2, 2},
     },
 }

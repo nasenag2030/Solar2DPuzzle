@@ -13,10 +13,11 @@ return {
     noBomb = true,
     hint   = "No bombs this time! Merge the corners to build chains.",
     grid   = {
-        {3, 1, nil, 1, 3},
-        {1, 2, nil, 2, 1},
-        {nil, nil, nil, nil, nil},
-        {1, 2, nil, 2, 1},
-        {3, 1, nil, 1, 3}
+        {3, 1, nil, nil, 1, 3},
+        {1, 2, nil, nil, 2, 1},
+        {nil, nil, nil, nil, nil, nil},
+        {nil, nil, nil, nil, nil, nil},
+        {1, 2, nil, nil, 2, 1},
+        {3, 1, nil, nil, 1, 3},
     },
 }

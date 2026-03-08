@@ -764,9 +764,13 @@ composer.showOverlay("scenes.gameover", {
 })
 
 -- In gameover.lua PLAY AGAIN button, route back correctly:
+-- IMPORTANT: always removeScene first so scene:create runs fresh with the correct params.
+-- Exception: basic/classic in-place restart reuses the live scene intentionally.
 if mode == "intermediate" and levelNum then
+    composer.removeScene("scenes.game")
     composer.gotoScene("scenes.game", { params={mode="intermediate", levelNum=levelNum, levelData=data} })
 elseif mode == "advanced" and stageNum then
+    composer.removeScene("scenes.game")
     composer.gotoScene("scenes.game", { params={mode="advanced", stageNum=stageNum, levelData=data} })
 else
     local gs = composer.getScene("scenes.game")
@@ -942,6 +946,7 @@ _session = {
 | 13 | `setBombPulse` called on obj without `_bombRing` | Silent crash | Guard: `if not tileObj._bombRing then return end` |
 | 14 | ScrollView inside a modal overlay without fixed height | Scroll bleeds through backdrop | Always set explicit `scrollHeight` in newScrollView |
 | 15 | `composer.recycleOnSceneChange = true` with game scene | Game state lost on overlay | Set `recycleOnSceneChange = false` for game scenes |
+| 16 | Navigate to the same scene with different params (e.g. different gridSize) | Old layout / stale module-level state shown | Call `composer.removeScene("scenes.game")` immediately before `gotoScene` — forces a fresh `scene:create` with the new params |
 
 ---
 

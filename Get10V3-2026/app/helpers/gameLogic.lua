@@ -14,6 +14,8 @@
 --     j        = number,       col  1=left, GRID=right
 --     isBomb   = boolean,      is this tile a bomb?
 --     isHotZone = boolean,     is this cell currently a score hot zone?
+--     isBrick    = boolean,    solid blocker — cannot be merged, moved, or destroyed
+--     isInactive = boolean,    dead cell — outside the stage shape; never drawn or filled
 --     obj      = DisplayGroup, live display object (managed by scenes/game.lua)
 --     _visited = boolean,      internal flood-fill flag (always cleared after use)
 --   }
@@ -97,7 +99,7 @@ function M.buildGrid(size)
         for j = 1, N do
             grid[i][j] = {
                 num=nil, i=i, j=j,
-                isBomb=false, isHotZone=false, obj=nil,
+                isBomb=false, isHotZone=false, isBrick=false, isInactive=false, obj=nil,
             }
         end
     end
@@ -257,15 +259,13 @@ function M.applyGravity( grid, gravityDir )
     -- For "left" and "right":          iterate rows;    tiles move along cols.
     -- We unify by extracting "lanes" then re-inserting.
 
-    local function processLane( positions )
-        -- positions: array of { i, j } for cells in this lane, in gravity order
-        --   gravity "down"  → positions sorted row 1→GRID, tile settles at end
-        --   gravity "up"    → positions sorted row GRID→1, tile settles at start
-        --   etc.
+    local function processSegment( segment )
+        -- segment: contiguous sub-lane with no bricks (array of {i,j})
+        -- Tiles settle at the END (gravity direction end) of the segment.
 
-        -- Step 1: collect occupied tiles in lane order
+        -- Step 1: collect occupied tiles
         local tiles = {}
-        for _, pos in ipairs(positions) do
+        for _, pos in ipairs(segment) do
             local cell = grid[pos[1]][pos[2]]
             if cell.num then
                 tiles[#tiles+1] = {
@@ -277,34 +277,49 @@ function M.applyGravity( grid, gravityDir )
             end
         end
 
-        -- Step 2: clear the lane
-        for _, pos in ipairs(positions) do
-            local cell         = grid[pos[1]][pos[2]]
-            cell.num           = nil
-            cell.isBomb        = false
-            cell.isHotZone     = false
-            cell.obj           = nil
+        -- Step 2: clear the segment
+        for _, pos in ipairs(segment) do
+            local cell     = grid[pos[1]][pos[2]]
+            cell.num       = nil
+            cell.isBomb    = false
+            cell.isHotZone = false
+            cell.obj       = nil
         end
 
-        -- Step 3: re-fill from the "gravity end" of the lane
-        -- "down" → tiles settle at the bottom (end of positions array)
-        -- "up"   → tiles settle at the top    (start of positions array)
-        -- For simplicity: tiles always settle at the END of the positions array.
-        -- To get "up" gravity the caller reverses the positions array.
-        local offset = #positions - #tiles
+        -- Step 3: re-fill from the gravity end of the segment
+        local offset = #segment - #tiles
         for k, t in ipairs(tiles) do
-            local pos  = positions[offset + k]
+            local pos  = segment[offset + k]
             local cell = grid[pos[1]][pos[2]]
             cell.num       = t.num
             cell.isBomb    = t.isBomb
             cell.isHotZone = t.isHotZone
             cell.obj       = t.obj
-            -- Keep display object's stored grid coords up to date
             if cell.obj then
                 cell.obj.i = pos[1]
                 cell.obj.j = pos[2]
             end
         end
+    end
+
+    local function processLane( positions )
+        -- positions: array of { i, j } for cells in this lane, in gravity order.
+        -- Brick cells split the lane — each brick-separated segment is processed
+        -- independently so tiles can never pass through a brick.
+        local segment = {}
+        for _, pos in ipairs(positions) do
+            local cell = grid[pos[1]][pos[2]]
+            if cell.isBrick or cell.isInactive then
+                if #segment > 0 then
+                    processSegment(segment)
+                    segment = {}
+                end
+                -- brick/inactive stays in place — skip it
+            else
+                segment[#segment+1] = pos
+            end
+        end
+        if #segment > 0 then processSegment(segment) end
     end
 
     local N = #grid

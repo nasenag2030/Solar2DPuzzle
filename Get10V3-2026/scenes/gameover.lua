@@ -191,11 +191,13 @@ function scene:create( event )
             -- Retry the same level
             local LL   = require("app.helpers.levelLoader")
             local data = LL.loadIntermediate(levelNum)
+            composer.removeScene("scenes.game")
             composer.gotoScene("scenes.game", { effect="fade", time=300,
                 params={mode="intermediate", levelNum=levelNum, levelData=data} })
         elseif mode == "advanced" and stageNum then
             local LL   = require("app.helpers.levelLoader")
             local data = LL.loadAdvanced(stageNum)
+            composer.removeScene("scenes.game")
             composer.gotoScene("scenes.game", { effect="fade", time=300,
                 params={mode="advanced", stageNum=stageNum, levelData=data} })
         else

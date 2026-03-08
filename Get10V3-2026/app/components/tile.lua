@@ -62,6 +62,45 @@ end
 -- ── Public API ─────────────────────────────────────────────────────────────────
 
 ---
+-- Create a brick (immovable blocker) DisplayGroup.
+-- Bricks have no number, cannot be merged or destroyed.
+-- Visual: dark charcoal rounded rect with mortar-line grooves.
+--
+-- @param tileSize  pixel size of the cell (defaults to settings TILE_SIZE)
+-- @return DisplayGroup  (isBrickObj=true flag set for identification)
+function M.newBrick( tileSize )
+    local sz    = tileSize or SIZE
+    local group = display.newGroup()
+
+    -- Dark background
+    local bg = display.newRoundedRect(group, 0, 0, sz-4, sz-4, CORNER)
+    bg:setFillColor(0.22, 0.20, 0.18)
+
+    -- Mortar grooves (lighter horizontal lines to suggest a brick wall)
+    local grooveAlpha = 0.18
+    local grooveW     = sz - 12
+    for _, dy in ipairs({ -(sz * 0.18), (sz * 0.18) }) do
+        local groove = display.newRect(group, 0, dy, grooveW, 2)
+        groove:setFillColor(1, 1, 1, grooveAlpha)
+    end
+    -- Vertical break on upper half (offset from lower half for classic brick pattern)
+    local vUpper = display.newRect(group, -(sz * 0.16), -(sz * 0.09), 2, sz * 0.28)
+    vUpper:setFillColor(1, 1, 1, grooveAlpha)
+    local vLower = display.newRect(group, (sz * 0.16), (sz * 0.09), 2, sz * 0.28)
+    vLower:setFillColor(1, 1, 1, grooveAlpha)
+
+    -- Small lock icon to reinforce "indestructible"
+    local icon = display.newText{
+        parent=group, text="🔒",
+        x=0, y=1, fontSize=sz * 0.38,
+    }
+    icon.alpha = 0.55
+
+    group.isBrickObj = true
+    return group
+end
+
+---
 -- Create a new tile DisplayGroup.
 --
 -- @param num           integer ≥ 1    tile value
@@ -177,16 +216,20 @@ end
 ---
 -- Animate tileObj falling to a new Y position (standard downward gravity).
 -- Uses outBounce so tiles feel physical and satisfying.
+-- Restores _cellScale so a cancelled spring-pop doesn't leave tiles oversized.
 function M.animateFall( tileObj, newY )
+    local scl = tileObj._cellScale or 1
     transition.cancel(tileObj)
-    transition.to(tileObj, { y=newY, time=FALL_TIME, transition=easing.outBounce })
+    transition.to(tileObj, { y=newY, xScale=scl, yScale=scl, time=FALL_TIME, transition=easing.outBounce })
 end
 
 ---
 -- Animate tileObj sliding to a new X position (horizontal gravity in Mania mode).
+-- Restores _cellScale so a cancelled spring-pop doesn't leave tiles oversized.
 function M.animateFallH( tileObj, newX )
+    local scl = tileObj._cellScale or 1
     transition.cancel(tileObj)
-    transition.to(tileObj, { x=newX, time=FALL_TIME, transition=easing.outBounce })
+    transition.to(tileObj, { x=newX, xScale=scl, yScale=scl, time=FALL_TIME, transition=easing.outBounce })
 end
 
 ---
@@ -216,9 +259,11 @@ function M.upgrade( tileData, parent, tapCB, scale )
     local newObj = M.new(newNum, false, isEndless)
     newObj.x = posX;  newObj.y = posY
     newObj.i = tileData.i;  newObj.j = tileData.j
-    if scale and math.abs(scale - 1) > 0.02 then
-        newObj.xScale = scale;  newObj.yScale = scale
+    local scl = scale or 1
+    if math.abs(scl - 1) > 0.02 then
+        newObj.xScale = scl;  newObj.yScale = scl
     end
+    newObj._cellScale = scl   -- stored so animateFall can restore correct scale
     newObj:addEventListener("tap", tapCB)
     parent:insert(newObj)
 

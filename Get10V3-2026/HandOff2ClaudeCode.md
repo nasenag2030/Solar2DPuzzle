@@ -931,5 +931,163 @@ Tile.spawnBombBlast(parent, x, y)
 
 ---
 
+---
+
+## 25. BRICK MODE — UNLOCK RULES & OPEN DECISIONS
+
+### Current unlock rule (scenes/levelSelect.lua → computeUnlocked)
+```lua
+_unlocked[n] = (_allStars[n - 1] or 0) >= 1
+-- Level N unlocks when level N-1 has ≥ 1 star (goal completed, any condition).
+```
+
+### DEV unlock flag (remove before release)
+```lua
+-- scenes/levelSelect.lua line ~70:
+local DEV_UNLOCK_ALL = true    -- testing: all 50 unlocked
+local DEV_UNLOCK_ALL = false   -- release: sequential unlock restored
+```
+
+### Open decision — what should "unlock" require?
+Options discussed but not decided:
+
+| Option | Rule | Notes |
+|--------|------|-------|
+| A (current) | ≥ 1 star (goal met, any way) | Easiest — most players progress |
+| B | ≥ 2 stars (goal met within par moves) | Medium gate — rewards efficiency |
+| C | ≥ 3 stars (goal + par + no bomb) | Hard gate — may frustrate casuals |
+| D | Reach tile 10 on previous level | Specific tile target regardless of goal type |
+
+**Recommendation:** Keep Option A for retention. Gate progression generously —
+the difficulty comes from brick patterns and goal types, not from replaying.
+
+### Brick brick count formula
+```
+bricks = 2 + floor((levelNum - 1) / 5)
+Level 1–5:  2 bricks    Level 26–30: 7 bricks
+Level 6–10: 3 bricks    Level 31–35: 8 bricks
+Level 11–15: 4 bricks   Level 36–40: 9 bricks
+Level 16–20: 5 bricks   Level 41–45: 10 bricks
+Level 21–25: 6 bricks   Level 46–50: 11 bricks  (11/36 cells = 30% blocked)
+```
+
+### Brick positions
+Stored in `data/levels/bricks.json` — edit freely, no Lua needed.
+Format: `{"1": [{"row": R, "col": C}, ...], "2": [...]}` (1-based coords).
+
+---
+
+## 26. PLAYER RETENTION & AD REVENUE STRATEGY
+
+**Business model:** Free + ads (AdMob). Revenue = DAU × sessions/day × ad impressions/session.
+Every decision below is aimed at maximising those three numbers.
+
+---
+
+### A. The Core Loop Must Feel Rewarding, Not Punishing
+
+The number-one cause of uninstall in hyper-casual is **frustration without hope**.
+Every loss must feel like the player's fault, not the game's.
+
+- ✅ Already have: near-miss flash ("So close!"), dynamic background warning (red = low moves)
+- ✅ Already have: undo system (reduces frustration on one bad tap)
+- 🔲 TODO: After a loss, show "Your best tile was X" — pride, not shame
+- 🔲 TODO: "You were 2 merges away!" message on game over screen
+
+---
+
+### B. Daily Return Hooks (DAU drivers)
+
+| Feature | Impact | Effort |
+|---------|--------|--------|
+| **Daily Challenge level** — unique brick layout, resets midnight | Very high | Medium |
+| **Daily streak calendar** (already built!) | High | Done ✅ |
+| **"Come back in Xh for your next life"** energy system | Medium | Medium |
+| **Daily reward** — watch ad to get a free hint/undo for the day | High | Low |
+| **Push notification** — "Your daily challenge is waiting!" | High | Medium |
+
+**Priority:** Daily Challenge is the single biggest DAU driver. One hand-crafted
+6×6 brick layout per day. Can be server-driven or hard-coded for a year upfront.
+
+---
+
+### C. Session Length Drivers (impressions/session)
+
+Longer sessions = more ad slots. These mechanics keep people in the app:
+
+| Mechanic | How it works |
+|----------|-------------|
+| **"One more try"** | After loss, restart is instant. No friction. Already works ✅ |
+| **Star re-run motivation** | 1-star levels show a banner: "Can you beat par?" |
+| **Combo + chain feedback** | Big visual reward for skill = dopamine loop. Already works ✅ |
+| **Level name + personality** | "The Cross", "Speed Run" make levels feel memorable |
+| **Progress bar per page** | "You've earned 9/12 stars on page 1" — completion pull |
+| **Endless mode** | After beating level 50, brick mode enters endless procedural. Infinite play. |
+
+---
+
+### D. Ad Placement Strategy (player-friendly order)
+
+**Rule:** Ads shown after a win feel like a reward. Ads shown after a loss feel like punishment. Always prefer post-win.
+
+```
+1. Rewarded video (highest CPM, player-initiated — never irritating)
+   - "Watch to get +3 moves"          ← show when out of moves (move-limit levels)
+   - "Watch to get 1 free undo"       ← show after player runs out
+   - "Watch to unlock a hint"         ← flash the best available merge
+   - "Watch to see your next level preview"
+
+2. Interstitial (automatic, must be controlled carefully)
+   - Show ONLY after level WIN (never after loss)
+   - Max once every 3 level completions
+   - Never on the first 5 levels (let player get hooked first)
+   - 5-minute cooldown between shows
+
+3. Banner (passive, lowest CPM)
+   - levelSelect screen only
+   - Never during gameplay
+   - Never on menu if it looks cheap — test both ways
+```
+
+---
+
+### E. Psychological Hooks Already In the Game (leverage these)
+
+| Hook | Mechanism | Status |
+|------|-----------|--------|
+| **Sunk cost** | Stars per level — beat with 1 star, feel pull to get 3 | ✅ built |
+| **Collection** | Total star count across 50 levels | ✅ built, needs UI highlight |
+| **Mastery** | XP → rank (Novice → Legend) | ✅ built |
+| **Streak** | 7-day calendar | ✅ built |
+| **Near-miss** | "So close!" flash | ✅ built |
+| **Escalation** | 2→11 bricks over 50 levels | ✅ designed |
+| **Named levels** | "The Fortress", "Speed Run" | ✅ first 10 named |
+
+---
+
+### F. Retention Anti-patterns to Avoid
+
+- ❌ **Ads after every level** — kills DAU faster than anything else
+- ❌ **Impossible levels early** — frustration at level 5 = uninstall
+- ❌ **No feedback on fail** — player doesn't know why they lost
+- ❌ **Slow restart** — any friction on "try again" loses the "one more" player
+- ❌ **Energy/lives system** — works for mid-core, kills hyper-casual DAU
+- ❌ **Too many popups on first launch** — rate us / notifications / ads = instant quit
+
+---
+
+### G. Priority Implementation Order (bang for buck)
+
+1. **Daily Challenge** — biggest DAU driver, implement before launch
+2. **Rewarded ad for +3 moves** — highest CPM, lowest frustration
+3. **Post-win interstitial** (levels 6+, max 1 per 3 wins)
+4. **"Star re-run" prompt** — after level end, show star gap and "beat your record"
+5. **Progress bar on level select** — completion pull keeps players in the mode
+6. **Endless procedural Brick mode** — infinite content after level 50
+7. **Push notifications** — daily challenge reminder
+8. **Banner on level select** — passive income while browsing levels
+
+---
+
 *End of HandOff2ClaudeCode.md*
-*Get10 v4.0 — Solar2D / Lua — 2026-03-04*
+*Get10 v4.0 — Solar2D / Lua — updated 2026-03-08*

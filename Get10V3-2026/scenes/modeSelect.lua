@@ -4,12 +4,10 @@
 -- Get10 v4.0 — New Mode Sub-Menu
 --
 -- Reached from the main menu via NEW MODE button.
--- Shows all modes beyond Classic:
---   DASH       — Bombs + Undo, 5×5
---   CHALLENGE  — Bombs + Undo + Chains, 5×5
+-- Shows modes beyond Classic:
 --   FREEPLAY   — Classic rules, selectable grid size 3×3 to 10×10
---   LEVELS     — Intermediate, 50 curated levels
---   STAGES     — Advanced, 999 shaped stages
+--   BRICK      — Intermediate, 50 curated levels on a 6×6 grid
+--   STAGES     — Advanced, 50 shaped stages
 --   MANIA      — Survival chaos mode
 --
 -- Resume dot: small orange circle top-right of button when a saved game exists.
@@ -17,6 +15,7 @@
 -- CHANGELOG:
 --   v4.0  2026-03-06  Initial
 --   v4.1  2026-03-07  Per-style save/HS; resume indicators; renamed NEW MODE
+--   v4.2  2026-03-07  Removed DASH + CHALLENGE; renamed LEVELS→BRICK
 --
 -----------------------------------------------------------------------------------------
 
@@ -27,7 +26,7 @@ local saveState     = require("app.helpers.saveState")
 
 local scene = composer.newScene()
 
--- Resume indicator dots keyed by style key (dash, challenge, freeplay)
+-- Resume indicator dots keyed by style key
 local _dots = {}
 
 -- Orange dot colour for resume indicators
@@ -41,8 +40,8 @@ local function hasFreeplayResume()
 end
 
 local function refreshDots()
-    if _dots.dash      then _dots.dash.isVisible      = saveState.hasResume("dash")      end
-    if _dots.challenge then _dots.challenge.isVisible  = saveState.hasResume("challenge") end
+    -- if _dots.dash      then _dots.dash.isVisible      = saveState.hasResume("dash")      end
+    -- if _dots.challenge then _dots.challenge.isVisible  = saveState.hasResume("challenge") end
     if _dots.freeplay  then _dots.freeplay.isVisible   = hasFreeplayResume()              end
 end
 
@@ -96,51 +95,52 @@ function scene:create( event )
         return dot
     end
 
-    local btnY = cy - 120
-
-    -- DASH: bombs + undo, no chains
-    _dots.dash = makeBtn("DASH", "Bombs + Undo · 5x5", btnY, true, function()
-        audioHelper.playTap()
-        composer.gotoScene("scenes.game", { effect="fade", time=300,
-            params={ mode="dash", hasBombs=true, hasUndo=true, hasChains=false, gridSize=5 } })
-        return true
-    end)
-
-    -- CHALLENGE: bombs + undo + chains
-    _dots.challenge = makeBtn("CHALLENGE", "Bombs + Undo + Chains · 5x5", btnY+68, false, function()
-        audioHelper.playTap()
-        composer.gotoScene("scenes.game", { effect="fade", time=300,
-            params={ mode="challenge", hasBombs=true, hasUndo=true, hasChains=true, gridSize=5 } })
-        return true
-    end)
+    local btnY = cy - 100
 
     -- FREEPLAY: classic rules, pick grid size
-    _dots.freeplay = makeBtn("FREEPLAY", "Classic rules · Choose grid size", btnY+136, false, function()
+    _dots.freeplay = makeBtn("FREEPLAY", "Classic rules · Choose grid size", btnY, true, function()
         audioHelper.playTap()
         composer.gotoScene("scenes.gridSelect", { effect="slideLeft", time=300 })
         return true
     end)
 
-    -- LEVELS (no resume indicator — fixed level progression)
-    makeBtn("LEVELS", "Intermediate · 50 levels", btnY+204, false, function()
+    -- BRICK: curated levels on a 6×6 grid
+    makeBtn("BRICK", "50 levels · 6×6 grid", btnY+68, false, function()
         audioHelper.playTap()
         composer.gotoScene("scenes.levelSelect", { effect="slideLeft", time=300 })
         return true
     end)
 
-    -- STAGES (no resume indicator — stage progress tracked separately)
-    makeBtn("STAGES", "Advanced · 999 stages", btnY+272, false, function()
+    -- STAGES
+    makeBtn("STAGES", "Advanced · 50 stages", btnY+136, false, function()
         audioHelper.playTap()
         composer.gotoScene("scenes.stageSelect", { effect="slideLeft", time=300 })
         return true
     end)
 
     -- MANIA (no resume — not resumable)
-    makeBtn("MANIA", "Chaos · Survival", btnY+340, false, function()
+    makeBtn("MANIA", "Chaos · Survival", btnY+204, false, function()
         audioHelper.playTap()
         composer.gotoScene("scenes.mania", { effect="fade", time=300 })
         return true
     end)
+
+    -- HIDDEN (not ready for publish) ──────────────────────────────────────────
+    -- DASH: bombs + undo, no chains
+    -- _dots.dash = makeBtn("DASH", "Bombs + Undo · 5x5", btnY+272, false, function()
+    --     audioHelper.playTap()
+    --     composer.gotoScene("scenes.game", { effect="fade", time=300,
+    --         params={ mode="dash", hasBombs=true, hasUndo=true, hasChains=false, gridSize=5 } })
+    --     return true
+    -- end)
+
+    -- CHALLENGE: bombs + undo + chains
+    -- _dots.challenge = makeBtn("CHALLENGE", "Bombs + Undo + Chains · 5x5", btnY+340, false, function()
+    --     audioHelper.playTap()
+    --     composer.gotoScene("scenes.game", { effect="fade", time=300,
+    --         params={ mode="challenge", hasBombs=true, hasUndo=true, hasChains=true, gridSize=5 } })
+    --     return true
+    -- end)
 
     refreshDots()
 end

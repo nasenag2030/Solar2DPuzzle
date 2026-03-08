@@ -377,6 +377,20 @@ end
 
 -- ── Board drawing ──────────────────────────────────────────────────────────────
 
+-- Create a brick display object (no tap listener — bricks are indestructible).
+local function drawBrick( cell )
+    local obj  = Tile.newBrick(TILE_S)
+    local x, y = gridToScreen(cell.i, cell.j)
+    obj.x = x;  obj.y = y
+    obj.i = cell.i;  obj.j = cell.j
+    local scl = TILE_S / settings.VISUAL.TILE_SIZE
+    if math.abs(scl - 1) > 0.02 then obj.xScale = scl;  obj.yScale = scl end
+    obj._cellScale = scl
+    _tileGroup:insert(obj)
+    cell.obj = obj
+    return obj
+end
+
 -- Create one tile display object and register its tap listener.
 -- Tiles with num > WIN get a gold endless-glow ring (if _isEndless).
 local function drawTile( cell )
@@ -392,6 +406,7 @@ local function drawTile( cell )
         obj.xScale = scl
         obj.yScale = scl
     end
+    obj._cellScale = scl   -- stored so animateFall can restore correct scale
     obj:addEventListener("tap", tileOnTap)
     _tileGroup:insert(obj)
     cell.obj = obj
@@ -402,7 +417,9 @@ local function drawAllTiles( animated )
     for i = 1, GRID do
         for j = 1, GRID do
             local cell = _grid[i][j]
-            if cell.num and not cell.obj then
+            if cell.isBrick and not cell.obj then
+                drawBrick(cell)
+            elseif cell.num and not cell.obj then
                 local obj = drawTile(cell)
                 if animated then
                     obj.alpha = 0
@@ -446,7 +463,8 @@ local function removeOrphanedObjects()
     for i = 1, GRID do
         for j = 1, GRID do
             local cell = _grid[i][j]
-            if cell.obj and not cell.num then
+            -- Bricks/inactive cells have obj=nil and no num — skip both
+            if cell.obj and not cell.num and not cell.isBrick and not cell.isInactive then
                 Tile.setBombPulse(cell.obj, false)
                 display.remove(cell.obj)
                 cell.obj = nil
@@ -459,7 +477,7 @@ local function refillEmptyCells()
     for i = 1, GRID do
         for j = 1, GRID do
             local cell = _grid[i][j]
-            if not cell.num then
+            if not cell.num and not cell.isBrick and not cell.isInactive then
                 cell.num    = GL.randomTileNum(_maxTile)
                 cell.isBomb = false
                 local obj   = drawTile(cell)
@@ -621,6 +639,7 @@ local function plantBombNow()
     newObj.i = bombCell.i;  newObj.j = bombCell.j
     local bScl = TILE_S / settings.VISUAL.TILE_SIZE
     if math.abs(bScl - 1) > 0.02 then newObj.xScale = bScl;  newObj.yScale = bScl end
+    newObj._cellScale = bScl
     newObj:addEventListener("tap", tileOnTap)
     _tileGroup:insert(newObj)
     bombCell.obj = newObj
@@ -1055,6 +1074,12 @@ tileOnTap = function( event )
     local obj      = event.target
     local tappedCell = _grid[obj.i][obj.j]
 
+    -- Brick tap — indestructible, unlock input and ignore
+    if tappedCell.isBrick then
+        _touchEnabled = true
+        return true
+    end
+
     clearHighlight()
 
     -- Bomb tap
@@ -1142,6 +1167,53 @@ local function buildBoard( savedData )
     _moveCount    = 0
     _grid = GL.buildGrid(GRID)
     GL.populateGrid(_grid, _maxTile, initGrid)
+
+    -- Mark cells inactive when the level's own grid data had nil at that position.
+    -- nil in a level grid = "outside the shape" (never fill, never draw).
+    -- 0 in a level grid  = "empty active cell" (fill randomly).
+    -- This fixes shaped levels like The Cross (level 006) whose nil cells would
+    -- otherwise get refilled by refillEmptyCells after every merge.
+    -- Skip this block when a stage shape is present — the shape controls cell
+    -- activity and the procedural grid may contain stray nil holes that would
+    -- incorrectly mark active-shape cells as inactive before the shape is applied.
+    local hasShape = _levelData and _levelData.shape
+    if initGrid and not hasShape then
+        for i = 1, GRID do
+            for j = 1, GRID do
+                if initGrid[i] ~= nil and initGrid[i][j] == nil then
+                    _grid[i][j].isInactive = true
+                end
+            end
+        end
+    end
+
+    -- Apply stage shape from levelData.shape (Stages mode).
+    -- shape[i][j] = 0 → inactive cell (outside stage border).
+    if _levelData and _levelData.shape then
+        for i = 1, GRID do
+            for j = 1, GRID do
+                if (_levelData.shape[i] and _levelData.shape[i][j] == 0) then
+                    local cell = _grid[i][j]
+                    cell.num        = nil
+                    cell.isInactive = true
+                end
+            end
+        end
+    end
+
+    -- Apply brick positions from level data (after populateGrid so bricks override any tile)
+    if _levelData and _levelData.bricks then
+        for _, b in ipairs(_levelData.bricks) do
+            local cell = _grid[b.row] and _grid[b.row][b.col]
+            if cell then
+                cell.num       = nil
+                cell.isBomb    = false
+                cell.isHotZone = false
+                cell.isBrick   = true
+            end
+        end
+    end
+
     GL.refreshHotZones(_grid, false)
 
     drawAllTiles(savedData == nil)

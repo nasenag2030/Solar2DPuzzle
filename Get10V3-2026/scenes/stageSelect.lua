@@ -3,21 +3,35 @@
 -- scenes/stageSelect.lua
 -- Get10 v4.0 — Advanced Mode: Stage Selection Screen
 --
--- Shows 999 stages in a 5-column scrollable grid.
--- Stages unlock sequentially. Completed stages show a green check.
--- A progress bar + bracket milestone dots show overall completion.
--- Auto-scrolls to the player's current position.
+-- WHAT THIS SCENE DOES
+-- ====================
+-- Shows all 50 Advanced stages as a paginated 3×4 grid (12 stages per page).
+-- Stages unlock sequentially — stage N+1 unlocks when N is completed.
+-- Stage 1 is always unlocked.
 --
--- Usage (from menu.lua):
+-- PAGINATION
+-- ==========
+-- 12 stages per page (3 cols × 4 rows). 50 stages = 5 pages.
+-- Prev / Next buttons sit at the bottom. Current page indicator shown between them.
+--
+-- TILE STATES
+-- ===========
+--   Dark bg  = locked
+--   Grid bg  = unlocked / current
+--   Green bg = completed  (shows ✓)
+--
+-- USAGE
+-- =====
+-- Called from menu.lua via:
 --   composer.gotoScene("scenes.stageSelect", { effect="slideLeft", time=300 })
 --
 -- CHANGELOG:
---   v4.0  2026-03-03  Initial
+--   v4.0  2026-03-03  Initial (ScrollView 5-col, 52×52 tiles, 999 stages)
+--   v4.1  2026-03-07  Replaced ScrollView with 3×4 paginated grid (12/page, 50 stages)
 --
 -----------------------------------------------------------------------------------------
 
 local composer    = require("composer")
-local widget      = require("widget")
 local settings    = require("config.settings")
 local saveState   = require("app.helpers.saveState")
 local audioHelper = require("app.helpers.audioHelper")
@@ -25,119 +39,254 @@ local levelLoader = require("app.helpers.levelLoader")
 
 local scene = composer.newScene()
 
-local COLS     = 5
-local CELL_W   = 52
-local CELL_H   = 52
-local CELL_PAD = 8
-local TOTAL    = settings.ADVANCED.TOTAL_STAGES
-local SCROLL_H = display.actualContentHeight - 130
+-- ── Layout constants ───────────────────────────────────────────────────────────
+local COLS            = 3
+local ROWS            = 4
+local STAGES_PER_PAGE = COLS * ROWS   -- 12
+local CELL_W          = 90
+local CELL_H          = 82
+local CELL_PAD        = 10
+local TOTAL_STAGES    = 50
+local TOTAL_PAGES     = math.ceil(TOTAL_STAGES / STAGES_PER_PAGE)   -- 5
+local HEADER_H        = 65
+local FOOTER_H        = 58
 
-local THEME_COLORS = {
-    Classic={0.60,0.60,0.70}, Ocean={0.20,0.65,0.85}, Fire={1.00,0.40,0.15},
-    Forest={0.30,0.75,0.30},  Space={0.35,0.25,0.70}, Ice={0.55,0.85,1.00},
-    Desert={0.90,0.70,0.30},  Neon={0.95,0.15,0.85},  Candy={1.00,0.55,0.70},
-    Void={0.20,0.10,0.25},
-}
-local function themeColor(t) return THEME_COLORS[t] or {0.50,0.50,0.55} end
+-- ── Module-level state ─────────────────────────────────────────────────────────
+local _sv           = nil
+local _gridGroup    = nil
+local _pageLabel    = nil
+local _prevBtn      = nil
+local _nextBtn      = nil
+local _currentPage  = 1
+local _currentStage = 1   -- player's furthest unlocked stage
 
-local function buildStageTile(parent, num, completed, locked, theme, onTap)
-    local g  = display.newGroup()
+-- ── Build one stage tile ───────────────────────────────────────────────────────
+--- @param parent     DisplayGroup
+--- @param num        number        stage number (1–50)
+--- @param completed  boolean       stage already beaten
+--- @param locked     boolean       not yet reachable
+--- @param onTap      function(num)
+--- @return           DisplayGroup
+local function buildStageTile( parent, num, completed, locked, onTap )
+    local g = display.newGroup()
     parent:insert(g)
-    local col = locked and {0.18,0.18,0.22}
-             or completed and {0.20,0.55,0.30}
-             or themeColor(theme)
-    local bg = display.newRoundedRect(g, 0, 0, CELL_W, CELL_H, 7)
-    bg:setFillColor(unpack(col))
-    if locked then bg.alpha = 0.5 end
+
+    -- Background
+    local bg = display.newRoundedRect(g, 0, 0, CELL_W, CELL_H, 10)
+    if locked then
+        bg:setFillColor(0.20, 0.20, 0.26)
+    elseif completed then
+        bg:setFillColor(0.20, 0.50, 0.28)
+    else
+        bg:setFillColor(unpack(settings.COLOR.GRID_BG))
+    end
+
+    -- Stage number
+    local numY = completed and 12 or 0
+    local numLbl = display.newText{
+        parent   = g,
+        text     = tostring(num),
+        x        = 0, y = numY,
+        font     = settings.FONT.BOLD,
+        fontSize = 22,
+    }
+    if locked then
+        numLbl:setFillColor(0.40)
+    elseif completed then
+        numLbl:setFillColor(0.70, 1.00, 0.70)
+    else
+        numLbl:setFillColor(unpack(settings.COLOR.SCORE))
+    end
+
+    -- Completion check
     if completed then
-        local ck = display.newText{parent=g,text="✓",x=0,y=-1,font=settings.FONT.BOLD,fontSize=20}
-        ck:setFillColor(1,1,1)
+        local ck = display.newText{
+            parent = g, text = "✓",
+            x = 0, y = -20,
+            font = settings.FONT.BOLD, fontSize = 20,
+        }
+        ck:setFillColor(0.70, 1.00, 0.70)
     end
-    local lbl = display.newText{parent=g,text=tostring(num),x=0,y=completed and 16 or 0,
-        font=settings.FONT.BOLD,fontSize=10}
-    lbl:setFillColor(locked and 0.35 or 1)
+
+    -- Lock icon
+    if locked then
+        local lk = display.newText{
+            parent = g, text = "🔒",
+            x = 0, y = 0,
+            font = settings.FONT.NORMAL, fontSize = 20,
+        }
+        lk:setFillColor(0.40)
+        numLbl.alpha = 0.30
+    end
+
+    -- Tap (unlocked only)
     if not locked then
-        bg:addEventListener("tap",function() audioHelper.playTap(); onTap(num); return true end)
+        local function doTap()
+            audioHelper.playTap()
+            onTap(num)
+            return true
+        end
+        bg:addEventListener("tap", doTap)
+        g:addEventListener("tap",  doTap)
     end
+
     return g
 end
 
-function scene:create(event)
-    local sv = self.view
-    local bg = display.newRect(sv,display.contentCenterX,display.contentCenterY,
-        display.actualContentWidth,display.actualContentHeight)
+-- ── Render a page of stage tiles ──────────────────────────────────────────────
+--- @param page  number  1-based
+local function showPage( page )
+    if _gridGroup then
+        _gridGroup:removeSelf()
+        _gridGroup = nil
+    end
+    _gridGroup = display.newGroup()
+    _sv:insert(_gridGroup)
+
+    local startStage = (page - 1) * STAGES_PER_PAGE + 1
+    local endStage   = math.min(page * STAGES_PER_PAGE, TOTAL_STAGES)
+
+    local gridTotalW = COLS * CELL_W + (COLS - 1) * CELL_PAD
+    local gridTotalH = ROWS * CELL_H + (ROWS - 1) * CELL_PAD
+    local gridAreaTop = HEADER_H + 4
+    local gridAreaBot = display.actualContentHeight - FOOTER_H - 4
+    local originX = display.contentCenterX - gridTotalW * 0.5 + CELL_W * 0.5
+    local originY = (gridAreaTop + gridAreaBot) * 0.5 - gridTotalH * 0.5 + CELL_H * 0.5
+
+    local function onStageTap( num )
+        local data = levelLoader.loadAdvanced(num)
+        composer.removeScene("scenes.game")
+        composer.gotoScene("scenes.game", {
+            effect = "fade", time = 300,
+            params = { mode = "advanced", stageNum = num, levelData = data, gridSize = 6 },
+        })
+    end
+
+    for n = startStage, endStage do
+        local idx  = n - startStage
+        local col  = idx % COLS
+        local row  = math.floor(idx / COLS)
+        local cx   = originX + col * (CELL_W + CELL_PAD)
+        local cy   = originY + row * (CELL_H + CELL_PAD)
+
+        local tile = buildStageTile(
+            _gridGroup, n,
+            n < _currentStage,
+            n > _currentStage,
+            onStageTap
+        )
+        tile.x = cx
+        tile.y = cy
+    end
+
+    _pageLabel.text = page .. " / " .. TOTAL_PAGES
+    _prevBtn.alpha  = (page > 1)            and 1.0 or 0.30
+    _nextBtn.alpha  = (page < TOTAL_PAGES)  and 1.0 or 0.30
+
+    -- Re-insert footer so it stays on top of _gridGroup in z-order.
+    -- _gridGroup is inserted into _sv each call, pushing footer behind it.
+    if _prevBtn   then _sv:insert(_prevBtn)   end
+    if _pageLabel then _sv:insert(_pageLabel) end
+    if _nextBtn   then _sv:insert(_nextBtn)   end
+end
+
+-- ── Scene lifecycle ────────────────────────────────────────────────────────────
+
+function scene:create( event )
+    local DEV_UNLOCK_ALL = true   -- TODO: set false before release
+    _sv           = self.view
+    _currentStage = DEV_UNLOCK_ALL and (TOTAL_STAGES + 1) or (saveState.loadAdvancedStage() or 1)
+    _currentPage  = 1
+
+    local bg = display.newRect(_sv,
+        display.contentCenterX, display.contentCenterY,
+        display.actualContentWidth, display.actualContentHeight)
     bg:setFillColor(unpack(settings.COLOR.BACKGROUND))
 
-    local hdr = display.newText{parent=sv,text="STAGES",
-        x=display.contentCenterX,y=30,font=settings.FONT.BOLD,fontSize=24}
-    hdr:setFillColor(unpack(settings.COLOR.SCORE))
-
-    local back = display.newText{parent=sv,text="< Back",
-        x=38,y=30,font=settings.FONT.BOLD,fontSize=16}
-    back:setFillColor(unpack(settings.COLOR.BUTTON_PRIMARY))
-    back:addEventListener("tap",function()
+    local backBtn = display.newText{
+        parent = _sv, text = "‹ Back",
+        x = 40, y = 36,
+        font = settings.FONT.BOLD, fontSize = 16,
+    }
+    backBtn:setFillColor(unpack(settings.COLOR.BUTTON_PRIMARY))
+    backBtn:addEventListener("tap", function()
         audioHelper.playTap()
-        composer.gotoScene("scenes.menu",{effect="slideRight",time=300})
+        composer.gotoScene("scenes.menu", { effect="slideRight", time=300 })
         return true
     end)
 
-    local currentStage = saveState.loadAdvancedStage() or 1
-
-    -- Progress bar
-    local barW = display.actualContentWidth - 40
-    local barBg = display.newRoundedRect(sv,display.contentCenterX,55,barW,10,5)
-    barBg:setFillColor(0.22,0.22,0.28)
-    local prog = math.min((currentStage-1)/TOTAL,1)
-    if prog > 0 then
-        local fill = display.newRoundedRect(sv,
-            display.contentCenterX - barW/2 + (barW*prog)/2, 55, barW*prog, 10, 5)
-        fill:setFillColor(unpack(settings.COLOR.SCORE))
-    end
-    local progLbl = display.newText{parent=sv,text=currentStage.." / "..TOTAL,
-        x=display.contentCenterX,y=70,font=settings.FONT.NORMAL,fontSize=11}
-    progLbl:setFillColor(0.55)
-    for _,ms in ipairs({101,301,601}) do
-        local xp = display.contentCenterX - barW/2 + barW*((ms-1)/TOTAL)
-        local dot = display.newCircle(sv,xp,55,4)
-        dot:setFillColor(ms<=currentStage and unpack(settings.COLOR.SCORE) or 0.40)
-    end
-
-    local function onStageTap(num)
-        local data = levelLoader.loadAdvanced(num)
-        composer.gotoScene("scenes.game",{effect="fade",time=300,
-            params={mode="advanced",stageNum=num,levelData=data}})
-    end
-
-    local rows  = math.ceil(TOTAL/COLS)
-    local totalH = rows*(CELL_H+CELL_PAD)+CELL_PAD
-    local sv2 = widget.newScrollView{
-        x=display.contentCenterX, y=display.contentCenterY+45,
-        width=display.actualContentWidth-20, height=SCROLL_H,
-        scrollWidth=display.actualContentWidth-20, scrollHeight=totalH,
-        horizontalScrollingEnabled=false, hideBackground=true,
+    local hdr = display.newText{
+        parent = _sv, text = "STAGES",
+        x = display.contentCenterX, y = 36,
+        font = settings.FONT.BOLD, fontSize = 26,
     }
-    sv:insert(sv2)
+    hdr:setFillColor(unpack(settings.COLOR.SCORE))
 
-    local startRow = math.max(0, math.floor((currentStage-1)/COLS)-1)
-    local scrollY  = startRow*(CELL_H+CELL_PAD)
-    if scrollY > 0 then sv2:scrollToPosition{y=-scrollY,time=400} end
+    local footerY = display.actualContentHeight - FOOTER_H * 0.5
 
-    for n = 1, TOTAL do
-        local c = ((n-1)%COLS)
-        local r = math.floor((n-1)/COLS)
-        local cx = CELL_W*0.5+CELL_PAD + c*(CELL_W+CELL_PAD)
-        local cy = CELL_H*0.5+CELL_PAD + r*(CELL_H+CELL_PAD)
-        local _,theme = levelLoader.advancedChapter(n)
-        local tile = buildStageTile(sv2, n, n<currentStage, n>currentStage, theme, onStageTap)
-        tile.x = cx; tile.y = cy
+    _prevBtn = display.newText{
+        parent = _sv, text = "‹",
+        x = 36, y = footerY,
+        font = settings.FONT.BOLD, fontSize = 32,
+    }
+    _prevBtn:setFillColor(unpack(settings.COLOR.BUTTON_PRIMARY))
+    _prevBtn:addEventListener("tap", function()
+        if _currentPage > 1 then
+            audioHelper.playTap()
+            _currentPage = _currentPage - 1
+            showPage(_currentPage)
+        end
+        return true
+    end)
+
+    _pageLabel = display.newText{
+        parent = _sv, text = "1 / " .. TOTAL_PAGES,
+        x = display.contentCenterX, y = footerY,
+        font = settings.FONT.NORMAL, fontSize = 16,
+    }
+    _pageLabel:setFillColor(0.70, 0.70, 0.75)
+
+    _nextBtn = display.newText{
+        parent = _sv, text = "›",
+        x = display.actualContentWidth - 36, y = footerY,
+        font = settings.FONT.BOLD, fontSize = 32,
+    }
+    _nextBtn:setFillColor(unpack(settings.COLOR.BUTTON_PRIMARY))
+    _nextBtn:addEventListener("tap", function()
+        if _currentPage < TOTAL_PAGES then
+            audioHelper.playTap()
+            _currentPage = _currentPage + 1
+            showPage(_currentPage)
+        end
+        return true
+    end)
+
+    showPage(_currentPage)
+end
+
+function scene:show( event )
+    if event.phase == "did" then
+        local DEV_UNLOCK_ALL = true   -- TODO: set false before release
+        _currentStage = DEV_UNLOCK_ALL and (TOTAL_STAGES + 1) or (saveState.loadAdvancedStage() or 1)
+        showPage(_currentPage)
     end
 end
 
-function scene:show(e)  end
-function scene:hide(e)  end
-function scene:destroy(e) end
-scene:addEventListener("create",scene)
-scene:addEventListener("show",scene)
-scene:addEventListener("hide",scene)
-scene:addEventListener("destroy",scene)
+function scene:hide( event )    end
+
+function scene:destroy( event )
+    _sv           = nil
+    _gridGroup    = nil
+    _pageLabel    = nil
+    _prevBtn      = nil
+    _nextBtn      = nil
+    _currentPage  = 1
+    _currentStage = 1
+end
+
+scene:addEventListener("create",  scene)
+scene:addEventListener("show",    scene)
+scene:addEventListener("hide",    scene)
+scene:addEventListener("destroy", scene)
+
 return scene

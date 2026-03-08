@@ -101,6 +101,7 @@ function scene:create( event )
         local function onTap( gridN )
             return function()
                 audioHelper.playTap()
+                composer.removeScene("scenes.game")
                 composer.gotoScene("scenes.game", { effect="fade", time=300,
                     params={ mode="freeplay", hasBombs=false, hasUndo=false,
                              hasChains=false, gridSize=gridN } })
