@@ -688,6 +688,71 @@ end
 -- Forward declaration so checkEndConditions can call _endSession before its definition
 local _endSession
 
+-- ── No More Moves notice (non-blocking) ───────────────────────────────────────
+--
+-- Shows a small card below the grid so the player can admire their final board
+-- before tapping OK to proceed to the game-over overlay.
+-- Input remains locked (_touchEnabled = false) until the overlay appears.
+
+local function showNoMovesNotice()
+    local cx = display.contentCenterX
+
+    -- Position the card just below the grid panel
+    -- gridToScreen bottom edge: contentCenterY + 30 + GRID*TILE_S/2 + small pad
+    local gridBottom = display.contentCenterY + 30 + GRID * TILE_S * 0.5
+    local cardY = gridBottom + 44
+    -- Clamp so the card never falls off-screen
+    cardY = math.min(cardY, display.actualContentHeight - 42)
+
+    local g = display.newGroup()
+    _sceneGroup:insert(g)
+
+    -- Dark semi-transparent card
+    local card = display.newRoundedRect(g, cx, cardY, 264, 74, 12)
+    card:setFillColor(0.10, 0.10, 0.14, 0.96)
+    card.strokeWidth = 1.5
+    card:setStrokeColor(unpack(settings.COLOR.BUTTON_PRIMARY))
+
+    -- Title
+    local title = display.newText{
+        parent=g, text="No More Moves",
+        x=cx, y=cardY-17,
+        font=settings.FONT.BOLD, fontSize=17, align="center",
+    }
+    title:setFillColor(1)
+
+    -- Sub-line: best tile reached
+    local sub = display.newText{
+        parent=g, text="Your best tile: " .. _maxTile,
+        x=cx, y=cardY+3,
+        font=settings.FONT.NORMAL, fontSize=12, align="center",
+    }
+    sub:setFillColor(0.65)
+
+    -- OK button
+    local okBg = display.newRoundedRect(g, cx, cardY+24, 90, 28, 8)
+    okBg:setFillColor(unpack(settings.COLOR.BUTTON_PRIMARY))
+    local okLbl = display.newText{
+        parent=g, text="OK",
+        x=cx, y=cardY+24,
+        font=settings.FONT.BOLD, fontSize=14,
+    }
+    okLbl:setFillColor(1)
+
+    local function onOK()
+        display.remove(g)
+        _endSession(true)
+        return true
+    end
+    okBg:addEventListener("tap", onOK)
+    okLbl:addEventListener("tap", onOK)
+
+    -- Slide up and fade in
+    g.y      = 40
+    g.alpha  = 0
+    transition.to(g, { y=0, alpha=1, time=260, transition=easing.outQuad })
+end
+
 -- ── Win / game-over check ──────────────────────────────────────────────────────
 --
 -- Called after all chains resolve. Handles:
@@ -735,9 +800,11 @@ local function checkEndConditions( newTileNum, shouldBomb )
     end
 
     -- ── Game over: no valid moves ──────────────────────────────────────────────
+    -- Show a non-blocking notice so the player can see their final board.
+    -- _touchEnabled stays false — only the OK button on the notice can proceed.
     if not GL.hasMoves(_grid) then
         _gameState = "gameover"
-        _endSession(true)
+        showNoMovesNotice()
         return
     end
 
