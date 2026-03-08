@@ -79,6 +79,7 @@ function scene:create( event )
     local cy     = display.contentCenterY
 
     local isGameOver   = params.isGameOver
+    local mode         = params.mode      or "basic"
     local score        = params.score      or 0
     local highScore    = params.highScore  or 0
     local bestCombo    = params.bestCombo  or 0
@@ -105,6 +106,7 @@ function scene:create( event )
 
     -- ── Heading ────────────────────────────────────────────────────────────────
     local headText = isGameOver and "No More Moves"
+        or (mode == "daily" and "Daily Done! 🌟")
         or (isEndless and ("Tile "..params.maxTile.."! 🌟") or "You Got 10! 🎉")
     local head = display.newText{ parent=g, text=headText, x=cx, y=top+38,
         font=settings.FONT.BOLD, fontSize=22, align="center", width=240 }
@@ -184,10 +186,12 @@ function scene:create( event )
     makeBtn("PLAY AGAIN", btnBase, settings.COLOR.BUTTON_PRIMARY, function()
         audioHelper.playTap()
         composer.hideOverlay()
-        local mode     = params.mode     or "basic"
         local levelNum = params.levelNum or nil
         local stageNum = params.stageNum or nil
-        if mode == "intermediate" and levelNum then
+        if mode == "daily" then
+            composer.removeScene("scenes.game")
+            composer.gotoScene("scenes.dailyChallenge", { effect="fade", time=300 })
+        elseif mode == "intermediate" and levelNum then
             -- Retry the same level
             local LL   = require("app.helpers.levelLoader")
             local data = LL.loadIntermediate(levelNum)

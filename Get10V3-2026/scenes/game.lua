@@ -136,6 +136,7 @@ local _undoBtn       = nil
 local _undoCountLbl  = nil
 local _nearMissLabel = nil
 local _endlessBanner = nil  -- "TILE 11! +500 pts" milestone banner
+local _movesLabel    = nil  -- "X left" move counter (daily / limited modes)
 
 -- Group highlight (dim non-group tiles before merge)
 local _highlightCells = nil
@@ -257,6 +258,21 @@ local function updateUndoButton()
         if _undoBtn then
             _undoBtn.alpha = (_undosLeft > 0) and 1.0 or 0.35
         end
+    end
+end
+
+local function updateMovesLabel()
+    if not _movesLabel then return end
+    local limit = _levelData and _levelData.moves
+    if not limit then return end
+    local left = math.max(0, limit - _moveCount)
+    _movesLabel.text = left .. " left"
+    if left <= 5 then
+        _movesLabel:setFillColor(unpack(settings.COLOR.BUTTON_SECONDARY))
+    elseif left <= 10 then
+        _movesLabel:setFillColor(1, 0.75, 0.2)
+    else
+        _movesLabel:setFillColor(unpack(settings.COLOR.SCORE))
     end
 end
 
@@ -799,6 +815,15 @@ local function checkEndConditions( newTileNum, shouldBomb )
         checkEndlessMilestone(newTileNum)
     end
 
+    -- ── Move limit reached (daily challenge / any moves-capped level) ─────────
+    updateMovesLabel()
+    local moveLimit = _levelData and _levelData.moves
+    if moveLimit and _moveCount >= moveLimit then
+        _gameState = "win"
+        _endSession(false)
+        return
+    end
+
     -- ── Game over: no valid moves ──────────────────────────────────────────────
     -- Show a non-blocking notice so the player can see their final board.
     -- _touchEnabled stays false — only the OK button on the notice can proceed.
@@ -849,6 +874,11 @@ _endSession = function( isGameOver )
     )
     if _maxTile > (_session.maxTile or 0) then _session.maxTile = _maxTile end
     _session.xp = scoreHelper.toXP(_totalScore)
+
+    -- Save daily challenge score (best score for today; only on actual end)
+    if _mode == "daily" then
+        saveState.saveDailyChallengeScore(_totalScore)
+    end
 
     -- Save Intermediate / Advanced mode progress on win
     if not isGameOver then
@@ -911,6 +941,9 @@ _endSession = function( isGameOver )
             effect="fromTop", time=300, isModal=true,
             params = {
                 isGameOver      = isGameOver,
+                mode            = _mode,
+                levelNum        = _levelNum,
+                stageNum        = _stageNum,
                 score           = _totalScore,
                 highScore       = _highScore,
                 maxTile         = _maxTile,
@@ -1288,6 +1321,7 @@ local function buildBoard( savedData )
     updateScoreLabels()
     updateBombCounter()
     updateUndoButton()
+    updateMovesLabel()
 end
 
 function scene.restart()
@@ -1450,6 +1484,19 @@ function scene:create( event )
         _bombCounter.anchorX = 1
     end
 
+    -- Move counter (top-right) — shown when level has a move limit (daily / limited)
+    local moveLimit = params.levelData and params.levelData.moves
+    if moveLimit then
+        local mlBox = display.newRoundedRect(_sceneGroup, display.contentWidth-34, 68, 52, 28, 6)
+        mlBox:setFillColor(unpack(settings.COLOR.GRID_BG))
+        local mlCap = display.newText{ parent=_sceneGroup, text="MOVES",
+            x=display.contentWidth-34, y=62, font=settings.FONT.NORMAL, fontSize=8 }
+        mlCap:setFillColor(0.5)
+        _movesLabel = display.newText{ parent=_sceneGroup, text=tostring(moveLimit).." left",
+            x=display.contentWidth-34, y=74, font=settings.FONT.BOLD, fontSize=13 }
+        _movesLabel:setFillColor(unpack(settings.COLOR.SCORE))
+    end
+
     -- Undo button — only shown when undo is enabled
     if _hasUndo then
         local undoBg = display.newRoundedRect(_sceneGroup, display.contentWidth-34, 68, 52, 28, 6)
@@ -1546,6 +1593,8 @@ function scene:destroy( event )
     if _comboTimer then timer.cancel(_comboTimer); _comboTimer = nil end
     if _chainTimer then timer.cancel(_chainTimer); _chainTimer = nil end
     if _rollTimer  then timer.cancel(_rollTimer);  _rollTimer  = nil end
+    _scoreLabel = nil; _highLabel = nil; _bombCounter = nil
+    _undoBtn    = nil; _undoCountLbl = nil; _movesLabel = nil
 end
 
 scene:addEventListener("create",  scene)

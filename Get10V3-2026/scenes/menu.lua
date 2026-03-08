@@ -136,9 +136,15 @@ function scene:create( event )
         end
     end
 
-    local btnY = cy - 10
+    local btnY = cy - 44
 
-    makeBtn("CLASSIC", "Reach tile 10 · No extras", btnY, true, function()
+    makeBtn("DAILY", "Today's challenge · Same for all", btnY, true, function()
+        audioHelper.playTap()
+        composer.gotoScene("scenes.dailyChallenge", { effect="slideLeft", time=300 })
+        return true
+    end)
+
+    makeBtn("CLASSIC", "Reach tile 10 · No extras", btnY+68, false, function()
         audioHelper.playTap()
         composer.removeScene("scenes.game")
         composer.gotoScene("scenes.game", { effect="fade", time=300,
@@ -146,7 +152,7 @@ function scene:create( event )
         return true
     end)
 
-    makeBtn("NEW MODE", "More modes & challenges", btnY+68, false, function()
+    makeBtn("MORE MODES", "Freeplay · Brick · Stages · Mania", btnY+136, false, function()
         audioHelper.playTap()
         composer.gotoScene("scenes.modeSelect", { effect="slideLeft", time=300 })
         return true
@@ -162,14 +168,14 @@ function scene:create( event )
         return true
     end)
 
-    -- Stats / achievements button
-    local statsBtn = display.newText{ parent=g, text="STATS", x=22, y=22,
-        font=settings.FONT.BOLD, fontSize=11 }
-    statsBtn:addEventListener("tap", function()
-        audioHelper.playTap()
-        composer.showOverlay("scenes.stats", { isModal=true, effect="fromTop", time=200 })
-        return true
-    end)
+    -- Stats button: hidden until layout is fixed (TODO)
+    -- local statsBtn = display.newText{ parent=g, text="STATS", x=22, y=22,
+    --     font=settings.FONT.BOLD, fontSize=11 }
+    -- statsBtn:addEventListener("tap", function()
+    --     audioHelper.playTap()
+    --     composer.showOverlay("scenes.stats", { isModal=true, effect="fromTop", time=200 })
+    --     return true
+    -- end)
 
     -- Version watermark
     local ver = display.newText{ parent=g, text=settings.VERSION_STR,

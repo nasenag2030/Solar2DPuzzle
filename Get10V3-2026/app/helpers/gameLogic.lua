@@ -86,6 +86,37 @@ function M.randomTileNum( maxTile )
     return 1
 end
 
+-- ── Seeded grid builder (Daily Challenge) ─────────────────────────────────────
+
+---
+-- Build a gridSize×gridSize tile-number grid deterministically from seed.
+-- Uses an LCG so the same seed always yields the same layout.
+-- Values are 1–5 (low-range), guaranteed at least one mergeable pair per row.
+-- @param seed      number  (from saveState.loadDailyChallenge().seed)
+-- @param gridSize  number
+-- @return 2-D table [1..N][1..N] of integers 1–5
+function M.buildGridFromSeed( seed, gridSize )
+    local s = math.floor(seed) % 4294967296
+    local function lcg()
+        s = (s * 1664525 + 1013904223) % 4294967296
+        return s
+    end
+    local g = {}
+    for i = 1, gridSize do
+        g[i] = {}
+        for j = 1, gridSize do
+            g[i][j] = (lcg() % 5) + 1
+        end
+    end
+    -- Guarantee at least one mergeable pair: duplicate one tile in each row
+    for i = 1, gridSize do
+        local srcJ = (lcg() % gridSize) + 1
+        local dstJ = (srcJ % gridSize) + 1   -- next col (wraps)
+        g[i][dstJ] = g[i][srcJ]
+    end
+    return g
+end
+
 -- ── Grid construction ──────────────────────────────────────────────────────────
 
 ---
