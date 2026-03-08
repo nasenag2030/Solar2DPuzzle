@@ -70,10 +70,12 @@ settings = {
         all = { "LineConnect-2026/*" },
     },
 
-    -- ── Splash screen (add per-game images before publishing) ────────────────
-    -- splashScreen = {
-    --     enable     = true,
-    --     image      = "assets/splash/splash_get10.png",
-    --     backgroundColor = { 0.08, 0.08, 0.10 },
-    -- },
+    -- ── Splash screen ─────────────────────────────────────────────────────────
+    -- TODO: Replace app/assets/splash/splash.png with real branded artwork
+    --       (1080x1920, dark navy bg #14141A, "GET 10" logo centred).
+    splashScreen = {
+        enable          = true,
+        image           = "app/assets/splash/splash.png",
+        backgroundColor = { 0.08, 0.08, 0.10 },
+    },
 }

@@ -66,7 +66,9 @@ the same architecture can be reused across future games.
 - ⚠️  Audio files missing — see `app/assets/audio/README.txt` for list needed
 - ⚠️  Intermediate levels 11–50 missing (levels 1–10 done, rest fallback to procedural)
 - ⚠️  No hand-crafted Advanced stages yet (all 999 use procedural generation)
-- ⚠️  No app icons or splash screens
+- ✅  Splash screen wired — placeholder PNG at `app/assets/splash/splash.png`
+      TODO (ART): Create real splash (1080×1920, dark navy #14141A, "GET 10" logo centred)
+- ⚠️  No app icons (1024×1024 for iOS, adaptive for Android)
 - ⚠️  No build.settings configured for App Store submission
 - ⚠️  Ads not implemented yet (planned — see section 10)
 - ⚠️  Known bugs reported by owner — screenshots coming (test and fix as found)
